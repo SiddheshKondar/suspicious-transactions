@@ -3,42 +3,65 @@ import pandas as pd
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)
+CORS(app)  # Enable CORS for frontend requests
 
-@app.route('/upload', methods=['POST'])
-def detect_suspicious():
+# Endpoint to handle single transaction
+@app.route('/check_transaction', methods=['POST'])
+def check_transaction():
     try:
-        # Get the uploaded file
-        uploaded_file = request.files['file']
-        if not uploaded_file:
-            return jsonify({"error": "No file uploaded"}), 400
+        data = request.get_json()
 
-        # Read the CSV file
-        data = pd.read_csv(uploaded_file)
+        transaction_id = data.get("transaction_id")
+        amount = data.get("amount")
+        account_id = data.get("account_id")
+        transaction_type = data.get("transaction_type")
 
-        # Ensure required columns exist
-        required_columns = {'transaction_id', 'amount', 'account_id'}
-        if not required_columns.issubset(data.columns):
-            return jsonify({"error": "Invalid file format"}), 400
+        if not all([transaction_id, amount, account_id, transaction_type]):
+            return jsonify({"error": "Missing data in request"}), 400
 
-        # Detect suspicious transactions (e.g., amount > 10000)
-        suspicious = data[data['amount'] > 10000]
-
-        # Prepare chart data
-        chart_data = (
-            data.groupby('account_id')['amount']
-            .sum()
-            .reset_index()
-            .to_dict(orient='records')
-        )
+        is_suspicious = amount > 10000
 
         return jsonify({
-            "suspicious_transactions": suspicious.to_dict(orient='records'),
-            "chart_data": chart_data
+            "message": "Transaction flagged as suspicious" if is_suspicious else "Transaction is safe",
+            "transaction_id": transaction_id,
+            "amount": amount,
+            "account_id": account_id,
+            "flagged": is_suspicious
         })
-
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"error": str(e)}), 500
 
-if __name__ == "__main__":
+# Endpoint to handle CSV file upload
+@app.route('/upload_csv', methods=['POST'])
+def upload_csv():
+    try:
+        # Check if a file is uploaded
+        if 'file' not in request.files:
+            return jsonify({"error": "No file uploaded"}), 400
+        
+        file = request.files['file']
+
+        # Ensure the file is a CSV
+        if not file.filename.endswith('.csv'):
+            return jsonify({"error": "File must be a CSV"}), 400
+
+        # Read the CSV file into a pandas DataFrame
+        df = pd.read_csv(file)
+
+        # Ensure the required columns are present
+        required_columns = ["transaction_id", "amount", "account_id", "transaction_type"]
+        if not all(col in df.columns for col in required_columns):
+            return jsonify({"error": f"CSV must contain columns: {', '.join(required_columns)}"}), 400
+
+        # Add a new column to flag suspicious transactions
+        df['flagged'] = df['amount'] > 10000
+
+        # Convert the DataFrame to a dictionary
+        result = df.to_dict(orient='records')
+
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
+if __name__ == '__main__':
     app.run(debug=True)

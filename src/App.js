@@ -1,16 +1,43 @@
 import React, { useState } from "react";
 import axios from "axios";
-//import './App.css';
+import "bootstrap/dist/css/bootstrap.min.css";
 
 function App() {
-  const [flaggedTransactions, setFlaggedTransactions] = useState([]);
-  const [chartData, setChartData] = useState([]);
-  const [error, setError] = useState(null);
+  const [transactionId, setTransactionId] = useState("");
+  const [amount, setAmount] = useState("");
+  const [accountId, setAccountId] = useState("");
+  const [transactionType, setTransactionType] = useState("");
+  const [result, setResult] = useState(null);
+  const [csvResult, setCsvResult] = useState(null);
 
-  const handleFileUpload = async (e) => {
+  // Handle check single transaction
+  const handleCheckTransaction = async () => {
+    try {
+      const transactionData = {
+        transaction_id: transactionId,
+        amount: parseFloat(amount),
+        account_id: accountId,
+        transaction_type: transactionType,
+      };
+
+      const response = await axios.post("http://127.0.0.1:5000/check_transaction", transactionData, {
+        headers: { "Content-Type": "application/json" },
+      });
+
+      setResult(response.data);
+    } catch (error) {
+      console.error("Error:", error);
+      alert("An error occurred while checking the transaction.");
+    }
+  };
+
+  // Handle CSV file upload
+  const handleUploadCsv = async (e) => {
+    e.preventDefault();
     const file = e.target.files[0];
+
     if (!file) {
-      setError("No file selected.");
+      alert("No file selected.");
       return;
     }
 
@@ -18,60 +45,98 @@ function App() {
     formData.append("file", file);
 
     try {
-      const response = await axios.post("http://127.0.0.1:5000/upload", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+      const response = await axios.post("http://127.0.0.1:5000/upload_csv", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       });
 
-      setFlaggedTransactions(response.data.suspicious_transactions || []);
-      setChartData(response.data.chart_data || []);
-      setError(null);
-    } catch (err) {
-      console.error("Error uploading file:", err);
-      setError("Failed to upload the file. Please try again.");
+      setCsvResult(response.data);
+    } catch (error) {
+      console.error("Error uploading CSV:", error);
+      alert("An error occurred while uploading the CSV file.");
     }
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>Suspicious Transactions Dashboard</h1>
-      <input type="file" onChange={handleFileUpload} />
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      
-      <h2>Flagged Transactions</h2>
-      {flaggedTransactions.length > 0 ? (
-        <table border="1" style={{ marginTop: "20px", width: "100%" }}>
-          <thead>
-            <tr>
-              <th>Transaction ID</th>
-              <th>Amount</th>
-              <th>Account ID</th>
-            </tr>
-          </thead>
-          <tbody>
-            {flaggedTransactions.map((tx) => (
-              <tr key={tx.transaction_id}>
-                <td>{tx.transaction_id}</td>
-                <td>{tx.amount}</td>
-                <td>{tx.account_id}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p>No suspicious transactions detected.</p>
+    <div className="container mt-5">
+      <h1>Transaction Checker</h1>
+
+      <div className="card p-3 mb-4">
+        <h3>Single Transaction</h3>
+        <input
+          className="form-control mb-2"
+          type="text"
+          placeholder="Transaction ID"
+          value={transactionId}
+          onChange={(e) => setTransactionId(e.target.value)}
+        />
+        <input
+          className="form-control mb-2"
+          type="number"
+          placeholder="Amount"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+        />
+        <input
+          className="form-control mb-2"
+          type="text"
+          placeholder="Account ID"
+          value={accountId}
+          onChange={(e) => setAccountId(e.target.value)}
+        />
+        <input
+          className="form-control mb-2"
+          type="text"
+          placeholder="Transaction Type"
+          value={transactionType}
+          onChange={(e) => setTransactionType(e.target.value)}
+        />
+        <button className="btn btn-primary" onClick={handleCheckTransaction}>
+          Check Transaction
+        </button>
+      </div>
+
+      {result && (
+        <div className="alert mt-3" style={{ color: result.flagged ? "red" : "green" }}>
+          <strong>{result.message}</strong>
+          <p>Transaction ID: {result.transaction_id}</p>
+          <p>Amount: {result.amount}</p>
+          <p>Account ID: {result.account_id}</p>
+        </div>
       )}
 
-      <h2>Chart Data</h2>
-      {chartData.length > 0 ? (
-        <ul>
-          {chartData.map((data) => (
-            <li key={data.account_id}>
-              Account ID: {data.account_id}, Total Amount: {data.amount}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>No chart data available.</p>
+      <div className="card p-3 mb-4">
+        <h3>Upload CSV</h3>
+        <input type="file" className="form-control" onChange={handleUploadCsv} />
+      </div>
+
+      {csvResult && (
+        <div className="mt-3">
+          <h3>CSV Results</h3>
+          <table className="table table-bordered">
+            <thead>
+              <tr>
+                <th>Transaction ID</th>
+                <th>Amount</th>
+                <th>Account ID</th>
+                <th>Transaction Type</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {csvResult.map((item, index) => (
+                <tr key={index} style={{ color: item.flagged ? "red" : "green" }}>
+                  <td>{item.transaction_id}</td>
+                  <td>{item.amount}</td>
+                  <td>{item.account_id}</td>
+                  <td>{item.transaction_type}</td>
+                  <td>{item.flagged ? "Flagged" : "Safe"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
