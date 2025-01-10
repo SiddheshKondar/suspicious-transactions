@@ -54,7 +54,7 @@ def upload_csv():
             return jsonify({"error": f"CSV must contain columns: {', '.join(required_columns)}"}), 400
 
         # Add a new column to flag suspicious transactions
-        df['flagged'] = df['amount'] > 10000
+        df['flagged'] = df['amount'] > 100000
 
         # Convert the DataFrame to a dictionary
         result = df.to_dict(orient='records')
