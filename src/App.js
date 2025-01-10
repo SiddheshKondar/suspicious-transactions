@@ -126,7 +126,13 @@ function App() {
             </thead>
             <tbody>
               {csvResult.map((item, index) => (
-                <tr key={index} style={{ color: item.flagged ? "red" : "green" }}>
+                <tr
+                  key={index}
+                  style={{
+                    backgroundColor: item.flagged ? "red" : "green", // Inline styling for row color
+                    color: "white", // Ensure text is visible on red/green
+                  }}
+                >
                   <td>{item.transaction_id}</td>
                   <td>{item.amount}</td>
                   <td>{item.account_id}</td>
